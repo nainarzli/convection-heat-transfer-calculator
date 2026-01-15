@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Convection Heat Transfer Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .input-group { margin-bottom: 15px; }
         .dimension-group { 
@@ -55,6 +56,59 @@
             border-bottom: 2px solid #007bff;
             padding-bottom: 5px;
         }
+        .chart-container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .chart-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .result-card {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+        .value-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 5px 0;
+        }
+        .unit {
+            font-size: 14px;
+            color: #666;
+        }
+        .regime-indicator {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .laminar { background-color: #4CAF50; color: white; }
+        .transition { background-color: #FF9800; color: white; }
+        .turbulent { background-color: #F44336; color: white; }
+        .equation-box {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -73,33 +127,26 @@
             </select>
         </div>
 
-        <!-- Geometry-specific dimensions - ALL HIDDEN INITIALLY -->
+        <!-- Geometry-specific dimensions -->
         <div id="geometry-dimensions">
-            <!-- Circular geometry -->
             <div id="circular-dimension" class="dimension-group" style="display: none;">
                 <label for="diameter">Diameter (D) (m):</label>
-                <input type="number" id="diameter" step="0.001" min="0.001" 
-                       placeholder="Enter diameter (m)">
+                <input type="number" id="diameter" step="0.001" min="0.001" placeholder="Enter diameter (m)">
             </div>
 
-            <!-- Square geometry -->
             <div id="square-dimension" class="dimension-group" style="display: none;">
                 <label for="side-length">Side Length (a) (m):</label>
-                <input type="number" id="side-length" step="0.001" min="0.001" 
-                       placeholder="Enter side length (m)">
+                <input type="number" id="side-length" step="0.001" min="0.001" placeholder="Enter side length (m)">
             </div>
 
-            <!-- Rectangular geometry -->
-            <div id="rectangular-dimension" class="dimension-group" style="display: none;">
+            <div id="rectangular-dimension" class="dimension-group">
                 <div class="dimension-input">
                     <label for="width">Width (w) (m):</label>
-                    <input type="number" id="width" step="0.001" min="0.001" 
-                           placeholder="Enter width (m)">
+                    <input type="number" id="width" step="0.001" min="0.001" placeholder="Enter width (m)" required>
                 </div>
                 <div class="dimension-input">
                     <label for="height">Height (h) (m):</label>
-                    <input type="number" id="height" step="0.001" min="0.001" 
-                           placeholder="Enter height (m)">
+                    <input type="number" id="height" step="0.001" min="0.001" placeholder="Enter height (m)" required>
                 </div>
             </div>
         </div>
@@ -117,8 +164,7 @@
 
         <div class="input-group">
             <label for="velocity">Velocity (V) (m/s):</label>
-            <input type="number" id="velocity" step="0.01" min="0" required 
-                   placeholder="Enter velocity">
+            <input type="number" id="velocity" step="0.01" min="0" required placeholder="Enter velocity">
         </div>
 
         <!-- Flow Parameters Section -->
@@ -126,8 +172,7 @@
         
         <div class="input-group">
             <label for="length">Length (L) (m):</label>
-            <input type="number" id="length" step="0.001" min="0.001" required 
-                   placeholder="Enter length of pipe/surface">
+            <input type="number" id="length" step="0.001" min="0.001" required placeholder="Enter length">
         </div>
 
         <!-- Temperature Parameters Section -->
@@ -135,14 +180,12 @@
         
         <div class="input-group">
             <label for="inlet-temperature">Inlet Temperature (Ti) (K):</label>
-            <input type="number" id="inlet-temperature" step="0.1" min="0" required 
-                   placeholder="Enter inlet temperature">
+            <input type="number" id="inlet-temperature" step="0.1" min="0" required placeholder="Enter Ti">
         </div>
 
         <div class="input-group">
             <label for="wall-temperature">Wall Temperature (Tw) (K):</label>
-            <input type="number" id="wall-temperature" step="0.1" min="0" required 
-                   placeholder="Enter wall temperature">
+            <input type="number" id="wall-temperature" step="0.1" min="0" required placeholder="Enter Tw">
         </div>
 
         <!-- Convection Type Section -->
@@ -152,11 +195,11 @@
             <div class="radio-group">
                 <label for="external">
                     <input type="radio" id="external" name="convection-type" value="external" checked> 
-                    <span class="radio-label"> External</span>
+                    <span class="radio-label">🔴 External</span>
                 </label>
                 <label for="internal">
                     <input type="radio" id="internal" name="convection-type" value="internal"> 
-                    <span class="radio-label"> Internal</span>
+                    <span class="radio-label">○ Internal</span>
                 </label>
             </div>
         </div>
@@ -168,69 +211,416 @@
     </form>
 
     <!-- Results Section -->
-    <div id="results" style="display: none; margin-top: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+    <div id="results" style="display: none; margin-top: 30px;">
         <h2>Results</h2>
-        <div id="results-content">
-            <p id="heat-transfer-coefficient"></p>
-            <!-- Add more result fields as needed -->
-        </div>
+        <div id="results-content"></div>
     </div>
 
     <script>
-        // Get all geometry elements
+        // === FLOW REGIME CONSTANTS ===
+        const REGIMES = {
+            LAMINAR: { min: 0, max: 2300, name: "Laminar", color: "laminar" },
+            TRANSITION: { min: 2300, max: 4000, name: "Transition", color: "transition" },
+            TURBULENT: { min: 4000, max: Infinity, name: "Turbulent", color: "turbulent" }
+        };
+
+        const EXTERNAL_CRITICAL_RE = 500000; // Critical Re for external flow
+
+        // === GEOMETRY SWITCHING ===
         const geometrySelect = document.getElementById('geometry');
         const circularDiv = document.getElementById('circular-dimension');
         const squareDiv = document.getElementById('square-dimension');
         const rectangularDiv = document.getElementById('rectangular-dimension');
         
-        // Function to show only the selected geometry
         function showSelectedGeometry() {
             const selected = geometrySelect.value;
-            console.log("Selected geometry:", selected);
             
-            // HIDE ALL FIRST
+            // Hide all
             circularDiv.style.display = 'none';
             squareDiv.style.display = 'none';
             rectangularDiv.style.display = 'none';
             
-            // Remove required from all geometry inputs
+            // Remove required from all
             document.querySelectorAll('#geometry-dimensions input').forEach(input => {
                 input.removeAttribute('required');
             });
             
-            // SHOW SELECTED ONE
-            switch(selected) {
-                case 'circular':
-                    circularDiv.style.display = 'block';
-                    document.getElementById('diameter').setAttribute('required', 'true');
-                    break;
-                case 'square':
-                    squareDiv.style.display = 'block';
-                    document.getElementById('side-length').setAttribute('required', 'true');
-                    break;
-                case 'rectangular':
-                    rectangularDiv.style.display = 'block';
-                    document.getElementById('width').setAttribute('required', 'true');
-                    document.getElementById('height').setAttribute('required', 'true');
-                    break;
+            // Show selected
+            if (selected === 'circular') {
+                circularDiv.style.display = 'block';
+                document.getElementById('diameter').setAttribute('required', 'true');
+            } else if (selected === 'square') {
+                squareDiv.style.display = 'block';
+                document.getElementById('side-length').setAttribute('required', 'true');
+            } else if (selected === 'rectangular') {
+                rectangularDiv.style.display = 'block';
+                document.getElementById('width').setAttribute('required', 'true');
+                document.getElementById('height').setAttribute('required', 'true');
             }
         }
         
-        // Add event listeners for immediate response
         geometrySelect.addEventListener('change', showSelectedGeometry);
-        geometrySelect.addEventListener('click', showSelectedGeometry);
         
-        // Initialize on page load
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("Page loaded, initializing geometry display...");
             showSelectedGeometry();
         });
         
-        // Form submission handler
+        // === FLUID PROPERTIES FUNCTIONS ===
+        function getAirProperties(tempK) {
+            // Air properties at 1 atm (more accurate correlations)
+            const T = tempK;
+            const rho = 1.293 * (273.15 / T);
+            const mu = 1.458e-6 * Math.pow(T, 1.5) / (T + 110.4);
+            const k = 0.0241 * Math.pow(T/273.15, 0.84);
+            const Pr = 0.7;
+            
+            return {
+                density: rho,
+                viscosity: mu,
+                thermalConductivity: k,
+                prandtlNumber: Pr,
+                specificHeat: 1005
+            };
+        }
+        
+        function getWaterProperties(tempK) {
+            // Water properties at 1 atm
+            const T = tempK;
+            const rho = 1000 * (1 - Math.pow((T - 277)/647, 1.3));
+            const mu = 0.00179 * Math.exp(-0.024 * (T - 273));
+            const k = 0.6 + 0.0018 * (T - 273);
+            const Pr = Math.max(2.0, 13.6 - 0.05 * (T - 273));
+            
+            return {
+                density: rho,
+                viscosity: mu,
+                thermalConductivity: k,
+                prandtlNumber: Pr,
+                specificHeat: 4186
+            };
+        }
+        
+        // === FLOW REGIME DETERMINATION ===
+        function determineFlowRegime(Re, convectionType) {
+            if (convectionType === 'external') {
+                return Re < EXTERNAL_CRITICAL_RE ? REGIMES.LAMINAR : REGIMES.TURBULENT;
+            } else {
+                if (Re < REGIMES.LAMINAR.max) return REGIMES.LAMINAR;
+                if (Re < REGIMES.TURBULENT.min) return REGIMES.TRANSITION;
+                return REGIMES.TURBULENT;
+            }
+        }
+        
+        // === NUSSELT NUMBER CORRELATIONS BY REGIME ===
+        function calculateNusseltNumber(Re, Pr, regime, convectionType, heating = true, Dh = null, L = null) {
+            let Nu = 0;
+            let equation = "";
+            
+            if (convectionType === 'internal') {
+                switch(regime.name) {
+                    case "Laminar":
+                        // Fully developed laminar flow in circular pipe - constant wall temperature
+                        Nu = 3.66;
+                        equation = "Nu = 3.66 (Fully developed laminar flow, constant wall temperature)";
+                        break;
+                        
+                    case "Transition":
+                        // Gnielinski correlation for transition flow
+                        const f = Math.pow((0.79 * Math.log(Re) - 1.64), -2);
+                        Nu = ((f/8) * (Re - 1000) * Pr) / (1 + 12.7 * Math.sqrt(f/8) * (Math.pow(Pr, 2/3) - 1));
+                        equation = `Gnielinski: Nu = [(f/8)(Re-1000)Pr] / [1+12.7√(f/8)(Pr²ᐟ³-1)], f=${f.toFixed(4)}`;
+                        break;
+                        
+                    case "Turbulent":
+                        // Dittus-Boelter equation for turbulent flow
+                        const n = heating ? 0.4 : 0.3;
+                        Nu = 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, n);
+                        equation = `Dittus-Boelter: Nu = 0.023 Re⁰·⁸ Prⁿ, n=${n} (${heating ? 'heating' : 'cooling'})`;
+                        break;
+                }
+                
+                // Apply entrance length correction if L/D < 10
+                if (Dh && L && L/Dh < 10) {
+                    const correction = 1 + Math.pow(Dh/L, 0.7);
+                    Nu *= correction;
+                    equation += ` × ${correction.toFixed(3)} (entrance length correction)`;
+                }
+                
+            } else { // External flow
+                switch(regime.name) {
+                    case "Laminar":
+                        // Laminar flow over flat plate
+                        Nu = 0.664 * Math.sqrt(Re) * Math.pow(Pr, 1/3);
+                        equation = "Nu = 0.664 √Re Pr¹ᐟ³ (Laminar boundary layer)";
+                        break;
+                        
+                    case "Turbulent":
+                        // Turbulent flow over flat plate
+                        Nu = 0.037 * Math.pow(Re, 0.8) * Math.pow(Pr, 1/3);
+                        equation = "Nu = 0.037 Re⁰·⁸ Pr¹ᐟ³ (Turbulent boundary layer)";
+                        break;
+                }
+            }
+            
+            return { Nu: Math.max(0.001, Nu), equation: equation };
+        }
+        
+        // === MAIN CALCULATION FUNCTION ===
+        function calculateConvection(data) {
+            const avgTemp = (data.inletTemperature + data.wallTemperature) / 2;
+            const heating = data.wallTemperature > data.inletTemperature;
+            
+            // Get fluid properties
+            let fluidProps;
+            if (data.fluid === 'air') {
+                fluidProps = getAirProperties(avgTemp);
+            } else {
+                fluidProps = getWaterProperties(avgTemp);
+            }
+            
+            // Calculate hydraulic diameter and geometry parameters
+            let Dh = 0, crossSectionalArea = 0, perimeter = 0;
+            switch(data.geometry) {
+                case 'circular':
+                    Dh = data.diameter;
+                    crossSectionalArea = Math.PI * Math.pow(data.diameter/2, 2);
+                    perimeter = Math.PI * data.diameter;
+                    break;
+                case 'square':
+                    Dh = data.sideLength;
+                    crossSectionalArea = Math.pow(data.sideLength, 2);
+                    perimeter = 4 * data.sideLength;
+                    break;
+                case 'rectangular':
+                    crossSectionalArea = data.width * data.height;
+                    perimeter = 2 * (data.width + data.height);
+                    Dh = 4 * crossSectionalArea / perimeter;
+                    break;
+            }
+            
+            // Calculate Reynolds number
+            const Re = (fluidProps.density * data.velocity * Dh) / fluidProps.viscosity;
+            
+            // Determine flow regime
+            const regime = determineFlowRegime(Re, data.convectionType);
+            
+            // Calculate Nusselt number using appropriate correlation
+            const nuResult = calculateNusseltNumber(
+                Re, 
+                fluidProps.prandtlNumber, 
+                regime, 
+                data.convectionType, 
+                heating,
+                Dh,
+                data.length
+            );
+            const Nu = nuResult.Nu;
+            
+            // Calculate heat transfer coefficient
+            const h = (Nu * fluidProps.thermalConductivity) / Dh;
+            
+            // Calculate mass flow rate
+            const massFlowRate = fluidProps.density * data.velocity * crossSectionalArea;
+            
+            // Calculate surface area
+            let surfaceArea = 0;
+            if (data.convectionType === 'internal') {
+                surfaceArea = perimeter * data.length;
+            } else {
+                surfaceArea = data.length * Dh; // Simplified for external flow
+            }
+            
+            // Calculate heat transfer rate
+            const deltaT = Math.abs(data.wallTemperature - data.inletTemperature);
+            const heatTransferRate = h * surfaceArea * deltaT;
+            
+            // Calculate temperature distribution
+            const temperatureData = calculateTemperatureDistribution(
+                data.inletTemperature,
+                data.wallTemperature,
+                h,
+                surfaceArea,
+                massFlowRate,
+                fluidProps.specificHeat,
+                data.length,
+                regime
+            );
+            
+            return {
+                Re: Re,
+                regime: regime,
+                Nu: Nu,
+                nuEquation: nuResult.equation,
+                h: h,
+                q: heatTransferRate,
+                Dh: Dh,
+                fluidProps: fluidProps,
+                surfaceArea: surfaceArea,
+                deltaT: deltaT,
+                avgTemp: avgTemp,
+                massFlowRate: massFlowRate,
+                temperatureData: temperatureData,
+                crossSectionalArea: crossSectionalArea,
+                perimeter: perimeter
+            };
+        }
+        
+        // === TEMPERATURE DISTRIBUTION ===
+        function calculateTemperatureDistribution(Ti, Tw, h, A, m_dot, Cp, L, regime) {
+            const dataPoints = 100;
+            const positions = [];
+            const temperatures = [];
+            
+            // Different models based on regime
+            let outletTemp = Ti;
+            
+            if (regime.name === "Laminar") {
+                // For laminar flow - slower temperature development
+                const P = A / L;
+                const exponentFactor = (h * P) / (m_dot * Cp);
+                
+                for (let i = 0; i <= dataPoints; i++) {
+                    const x = (i / dataPoints) * L;
+                    const T = Tw - (Tw - Ti) * Math.exp(-exponentFactor * x);
+                    positions.push(x);
+                    temperatures.push(T);
+                }
+                outletTemp = temperatures[temperatures.length - 1];
+                
+            } else {
+                // For turbulent/transition - faster temperature development
+                const effectiveness = 1 - Math.exp(-(h * A) / (m_dot * Cp));
+                outletTemp = Ti + effectiveness * (Tw - Ti);
+                
+                for (let i = 0; i <= dataPoints; i++) {
+                    const x = (i / dataPoints) * L;
+                    const fraction = Math.pow(x/L, 0.8); // Turbulent mixing
+                    const T = Ti + (outletTemp - Ti) * fraction;
+                    positions.push(x);
+                    temperatures.push(T);
+                }
+            }
+            
+            return {
+                positions: positions,
+                temperatures: temperatures,
+                outletTemperature: outletTemp,
+                effectiveness: (outletTemp - Ti) / (Tw - Ti)
+            };
+        }
+        
+        // === CHART CREATION ===
+        function createTemperatureChart(temperatureData, regime) {
+            const ctx = document.createElement('canvas');
+            ctx.id = 'temperatureChart';
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: temperatureData.positions.map(x => x.toFixed(2)),
+                    datasets: [{
+                        label: `Fluid Temperature (${regime.name})`,
+                        data: temperatureData.temperatures,
+                        borderColor: regime.name === 'Laminar' ? '#4CAF50' : 
+                                    regime.name === 'Transition' ? '#FF9800' : '#F44336',
+                        backgroundColor: regime.name === 'Laminar' ? 'rgba(76, 175, 80, 0.1)' : 
+                                       regime.name === 'Transition' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: regime.name === 'Laminar' ? 0.4 : 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Temperature Distribution (${regime.name} Flow)`
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Distance (m)' } },
+                        y: { 
+                            title: { display: true, text: 'Temperature (K)' },
+                            suggestedMin: Math.min(...temperatureData.temperatures) * 0.95
+                        }
+                    }
+                }
+            });
+            
+            return ctx;
+        }
+        
+        function createRegimeChart(Re, regimes) {
+            const ctx = document.createElement('canvas');
+            ctx.id = 'regimeChart';
+            
+            const regimePoints = [
+                { x: 0, y: 0, regime: 'Laminar' },
+                { x: regimes.LAMINAR.max, y: 1, regime: 'Laminar' },
+                { x: regimes.TURBULENT.min, y: 2, regime: 'Transition' },
+                { x: regimes.TURBULENT.min * 2, y: 3, regime: 'Turbulent' }
+            ];
+            
+            new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Flow Regime Regions',
+                        data: regimePoints,
+                        backgroundColor: ['#4CAF50', '#4CAF50', '#FF9800', '#F44336'],
+                        borderColor: ['#4CAF50', '#4CAF50', '#FF9800', '#F44336'],
+                        pointRadius: 0,
+                        showLine: true,
+                        borderWidth: 2,
+                        fill: true
+                    }, {
+                        label: 'Your Flow (Re = ' + Re.toFixed(0) + ')',
+                        data: [{ x: Re, y: 1.5 }],
+                        backgroundColor: '#007bff',
+                        borderColor: '#007bff',
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Flow Regime Identification'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Reynolds Number (Re)' },
+                            type: 'logarithmic',
+                            min: 1,
+                            max: 1000000
+                        },
+                        y: {
+                            title: { display: true, text: 'Regime' },
+                            ticks: {
+                                callback: function(value) {
+                                    if (value === 0.5) return 'Laminar';
+                                    if (value === 1.5) return 'Transition';
+                                    if (value === 2.5) return 'Turbulent';
+                                    return '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            return ctx;
+        }
+        
+        // === FORM SUBMISSION ===
         document.getElementById('calculator-form').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Get all form values
+            // Get form data
             const formData = {
                 geometry: geometrySelect.value,
                 fluid: document.getElementById('fluid').value,
@@ -241,113 +631,94 @@
                 convectionType: document.querySelector('input[name="convection-type"]:checked').value
             };
             
-            // Get geometry-specific dimensions
+            // Get geometry dimensions
             switch(formData.geometry) {
                 case 'circular':
                     formData.diameter = parseFloat(document.getElementById('diameter').value);
-                    if (!formData.diameter || formData.diameter <= 0) {
-                        alert("Please enter a valid diameter");
-                        return;
-                    }
                     break;
-                    
                 case 'square':
                     formData.sideLength = parseFloat(document.getElementById('side-length').value);
-                    if (!formData.sideLength || formData.sideLength <= 0) {
-                        alert("Please enter a valid side length");
-                        return;
-                    }
                     break;
-                    
                 case 'rectangular':
                     formData.width = parseFloat(document.getElementById('width').value);
                     formData.height = parseFloat(document.getElementById('height').value);
-                    if (!formData.width || formData.width <= 0 || !formData.height || formData.height <= 0) {
-                        alert("Please enter valid width and height");
-                        return;
-                    }
                     break;
             }
             
-            // Validate all required fields
-            let isValid = true;
-            let errorMessage = "";
-            
-            if (!formData.velocity || formData.velocity <= 0) {
-                errorMessage += "• Please enter a valid velocity\n";
-                isValid = false;
-            }
-            if (!formData.length || formData.length <= 0) {
-                errorMessage += "• Please enter a valid length\n";
-                isValid = false;
-            }
-            if (!formData.inletTemperature || formData.inletTemperature <= 0) {
-                errorMessage += "• Please enter a valid inlet temperature\n";
-                isValid = false;
-            }
-            if (!formData.wallTemperature || formData.wallTemperature <= 0) {
-                errorMessage += "• Please enter a valid wall temperature\n";
-                isValid = false;
+            // Validate
+            for (let key in formData) {
+                if (formData[key] === undefined || formData[key] <= 0) {
+                    alert(`Please enter valid ${key}`);
+                    return;
+                }
             }
             
-            if (!isValid) {
-                alert("Please fix the following errors:\n\n" + errorMessage);
-                return;
-            }
-            
-            // Display collected data (for testing)
-            console.log("Form data collected:", formData);
-            
-            // Show results section
-            const resultsDiv = document.getElementById('results');
-            const resultsContent = document.getElementById('results-content');
-            
-            // Calculate hydraulic diameter based on geometry
-            let hydraulicDiameter = 0;
-            let geometryInfo = "";
-            
-            switch(formData.geometry) {
-                case 'circular':
-                    hydraulicDiameter = formData.diameter;
-                    geometryInfo = `Circular, Diameter: ${formData.diameter} m`;
-                    break;
-                case 'square':
-                    hydraulicDiameter = formData.sideLength;
-                    geometryInfo = `Square, Side Length: ${formData.sideLength} m`;
-                    break;
-                case 'rectangular':
-                    // For rectangular duct: Dh = 2wh/(w+h)
-                    hydraulicDiameter = 2 * (formData.width * formData.height) / (formData.width + formData.height);
-                    geometryInfo = `Rectangular, Width: ${formData.width} m, Height: ${formData.height} m`;
-                    break;
-            }
-            
-            // Mock calculation - REPLACE WITH YOUR ACTUAL FORMULAS
-            const reynoldsNumber = (formData.velocity * hydraulicDiameter * 1000) / 1e-6; // Simplified
-            const nusseltNumber = 0.023 * Math.pow(reynoldsNumber, 0.8) * Math.pow(0.7, 0.3); // Dittus-Boelter approx
-            const thermalConductivity = formData.fluid === 'air' ? 0.026 : 0.6; // W/m·K
-            const heatTransferCoefficient = (nusseltNumber * thermalConductivity) / hydraulicDiameter;
+            // Calculate
+            const results = calculateConvection(formData);
             
             // Display results
+            const resultsContent = document.getElementById('results-content');
             resultsContent.innerHTML = `
-                <h3>Calculation Results</h3>
-                <p><strong>Geometry:</strong> ${geometryInfo}</p>
-                <p><strong>Fluid Type:</strong> ${formData.fluid.charAt(0).toUpperCase() + formData.fluid.slice(1)}</p>
-                <p><strong>Convection Type:</strong> ${formData.convectionType.charAt(0).toUpperCase() + formData.convectionType.slice(1)}</p>
-                <p><strong>Hydraulic Diameter (Dh):</strong> ${hydraulicDiameter.toFixed(4)} m</p>
-                <p><strong>Reynolds Number (Re):</strong> ${reynoldsNumber.toFixed(0)}</p>
-                <p><strong>Nusselt Number (Nu):</strong> ${nusseltNumber.toFixed(2)}</p>
-                <p><strong>Heat Transfer Coefficient (h):</strong> ${heatTransferCoefficient.toFixed(2)} W/m²·K</p>
-                <p><strong>Velocity:</strong> ${formData.velocity} m/s</p>
-                <p><strong>Length:</strong> ${formData.length} m</p>
-                <p><strong>Inlet Temperature (Ti):</strong> ${formData.inletTemperature} K</p>
-                <p><strong>Wall Temperature (Tw):</strong> ${formData.wallTemperature} K</p>
+                <div class="results-grid">
+                    <div class="result-card">
+                        <h3>Flow Analysis</h3>
+                        <p><strong>Reynolds Number:</strong> 
+                            <span class="value-display">${results.Re.toFixed(0)}</span>
+                            <span class="regime-indicator ${results.regime.color}">${results.regime.name}</span>
+                        </p>
+                        <p><strong>Flow Regime:</strong> ${results.regime.name} 
+                            (Re ${results.regime.min} - ${results.regime.max === Infinity ? '∞' : results.regime.max})</p>
+                        <div class="equation-box">${results.nuEquation}</div>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3>Heat Transfer Results</h3>
+                        <div class="value-display">${results.h.toFixed(2)} <span class="unit">W/m²·K</span></div>
+                        <p><strong>Heat Transfer Coefficient (h)</strong></p>
+                        
+                        <div class="value-display">${results.q.toFixed(2)} <span class="unit">W</span></div>
+                        <p><strong>Heat Transfer Rate (q)</strong></p>
+                        
+                        <div class="value-display">${results.Nu.toFixed(2)} <span class="unit">(Nu)</span></div>
+                        <p><strong>Nusselt Number</strong></p>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3>System Parameters</h3>
+                        <p><strong>Geometry:</strong> ${formData.geometry}</p>
+                        <p><strong>Fluid:</strong> ${formData.fluid}</p>
+                        <p><strong>Convection Type:</strong> ${formData.convectionType}</p>
+                        <p><strong>Hydraulic Diameter:</strong> ${results.Dh.toFixed(4)} m</p>
+                        <p><strong>Mass Flow Rate:</strong> ${results.massFlowRate.toFixed(4)} kg/s</p>
+                        <p><strong>Outlet Temperature:</strong> ${results.temperatureData.outletTemperature.toFixed(1)} K</p>
+                        <p><strong>Effectiveness:</strong> ${(results.temperatureData.effectiveness * 100).toFixed(1)}%</p>
+                    </div>
+                </div>
             `;
             
-            resultsDiv.style.display = 'block';
-            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            // Add regime identification chart
+            const regimeChartContainer = document.createElement('div');
+            regimeChartContainer.className = 'chart-container';
+            regimeChartContainer.innerHTML = '<div class="chart-title">Flow Regime Identification</div>';
+            regimeChartContainer.appendChild(createRegimeChart(results.Re, REGIMES));
+            resultsContent.appendChild(regimeChartContainer);
             
-            alert(`Calculation complete!\n\nGeometry: ${formData.geometry}\nFluid: ${formData.fluid}\nConvection: ${formData.convectionType}\n\nSee detailed results below.`);
+            // Add temperature distribution chart
+            const tempChartContainer = document.createElement('div');
+            tempChartContainer.className = 'chart-container';
+            tempChartContainer.innerHTML = `<div class="chart-title">Temperature Distribution (${results.regime.name} Flow Regime)</div>`;
+            tempChartContainer.appendChild(createTemperatureChart(results.temperatureData, results.regime));
+            resultsContent.appendChild(tempChartContainer);
+            
+            // Show results section
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+            
+            // Debug output
+            console.log("=== FLOW REGIME ANALYSIS ===");
+            console.log(`Re = ${results.Re.toFixed(0)} → ${results.regime.name} flow`);
+            console.log(`Equation used: ${results.nuEquation}`);
+            console.log(`h = ${results.h.toFixed(2)} W/m²·K`);
         });
     </script>
 </body>
