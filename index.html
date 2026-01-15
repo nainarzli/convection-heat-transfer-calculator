@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convection Heat Transfer Calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<body>
+  <h1>Convection Heat Transfer Calculator</h1>
+  <form id="calculator-form">
+    <label for="fluid-type">Fluid Type:</label>
+    <select id="fluid-type">
+      <option value="air">Air</option>
+      <option value="water">Water</option>
+      <!-- Add more fluid types if needed -->
+    </select>
+    
+    <label for="velocity">Fluid Velocity (m/s):</label>
+    <input type="number" id="velocity" step="any" required>
+
+    <label for="diameter">Diameter (m):</label>
+    <input type="number" id="diameter" step="any" required>
+
+    <label for="temperature">Temperature (K):</label>
+    <input type="number" id="temperature" step="any" required>
+
+    <label for="viscosity">Viscosity (Pa·s):</label>
+    <input type="number" id="viscosity" step="any" required>
+
+    <label for="type-of-convection">Type of Convection:</label>
+<div id="convection-type-section">
+  <label for="external">
+    <input type="radio" id="external" name="convection-type" value="external" checked> External
+  </label>
+  <label for="internal">
+    <input type="radio" id="internal" name="convection-type" value="internal"> Internal
+  </label>
+</div>
+
+   <div id="calculate-button-container">
+  <button type="submit">Calculate</button>
+</div>
+
+
+  <div id="results">
+    <h2>Results</h2>
+    <p id="heat-transfer-coefficient"></p>
+    <canvas id="temperature-graph"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
