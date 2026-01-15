@@ -1,56 +1,354 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Convection Heat Transfer Calculator</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convection Heat Transfer Calculator</title>
+    <style>
+        .input-group { margin-bottom: 15px; }
+        .dimension-group { 
+            margin: 10px 0; 
+            padding: 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            background-color: #f9f9f9; 
+        }
+        .dimension-input { margin-bottom: 8px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="number"], select { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+        }
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { background-color: #0056b3; }
+        .button-group { text-align: center; margin-top: 20px; }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 5px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .radio-label {
+            margin-left: 5px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+    </style>
 </head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <body>
-  <h1>Convection Heat Transfer Calculator</h1>
-  <form id="calculator-form">
-    <label for="fluid-type">Fluid Type:</label>
-    <select id="fluid-type">
-      <option value="air">Air</option>
-      <option value="water">Water</option>
-      <!-- Add more fluid types if needed -->
-    </select>
-    
-    <label for="velocity">Fluid Velocity (m/s):</label>
-    <input type="number" id="velocity" step="any" required>
+    <h1>Convection Heat Transfer Calculator</h1>
 
-    <label for="diameter">Diameter (m):</label>
-    <input type="number" id="diameter" step="any" required>
+    <form id="calculator-form">
+        <!-- Geometry Section -->
+        <div class="section-title">Geometry Configuration</div>
+        
+        <div class="input-group">
+            <label for="geometry">Geometry:</label>
+            <select id="geometry" required>
+                <option value="circular">Circular</option>
+                <option value="square">Square</option>
+                <option value="rectangular" selected>Rectangular</option>
+            </select>
+        </div>
 
-    <label for="temperature">Temperature (K):</label>
-    <input type="number" id="temperature" step="any" required>
+        <!-- Geometry-specific dimensions - ALL HIDDEN INITIALLY -->
+        <div id="geometry-dimensions">
+            <!-- Circular geometry -->
+            <div id="circular-dimension" class="dimension-group" style="display: none;">
+                <label for="diameter">Diameter (D) (m):</label>
+                <input type="number" id="diameter" step="0.001" min="0.001" 
+                       placeholder="Enter diameter (m)">
+            </div>
 
-    <label for="viscosity">Viscosity (Pa·s):</label>
-    <input type="number" id="viscosity" step="any" required>
+            <!-- Square geometry -->
+            <div id="square-dimension" class="dimension-group" style="display: none;">
+                <label for="side-length">Side Length (a) (m):</label>
+                <input type="number" id="side-length" step="0.001" min="0.001" 
+                       placeholder="Enter side length (m)">
+            </div>
 
-    <label for="type-of-convection">Type of Convection:</label>
-<div id="convection-type-section">
-  <label for="external">
-    <input type="radio" id="external" name="convection-type" value="external" checked> External
-  </label>
-  <label for="internal">
-    <input type="radio" id="internal" name="convection-type" value="internal"> Internal
-  </label>
-</div>
+            <!-- Rectangular geometry -->
+            <div id="rectangular-dimension" class="dimension-group" style="display: none;">
+                <div class="dimension-input">
+                    <label for="width">Width (w) (m):</label>
+                    <input type="number" id="width" step="0.001" min="0.001" 
+                           placeholder="Enter width (m)">
+                </div>
+                <div class="dimension-input">
+                    <label for="height">Height (h) (m):</label>
+                    <input type="number" id="height" step="0.001" min="0.001" 
+                           placeholder="Enter height (m)">
+                </div>
+            </div>
+        </div>
 
-   <div id="calculate-button-container">
-  <button type="submit">Calculate</button>
-</div>
+        <!-- Fluid Properties Section -->
+        <div class="section-title">Fluid Properties</div>
+        
+        <div class="input-group">
+            <label for="fluid">Fluid Type:</label>
+            <select id="fluid" required>
+                <option value="air">Air</option>
+                <option value="water">Water</option>
+            </select>
+        </div>
 
+        <div class="input-group">
+            <label for="velocity">Velocity (V) (m/s):</label>
+            <input type="number" id="velocity" step="0.01" min="0" required 
+                   placeholder="Enter velocity">
+        </div>
 
-  <div id="results">
-    <h2>Results</h2>
-    <p id="heat-transfer-coefficient"></p>
-    <canvas id="temperature-graph"></div>
-  </div>
+        <!-- Flow Parameters Section -->
+        <div class="section-title">Flow Parameters</div>
+        
+        <div class="input-group">
+            <label for="length">Length (L) (m):</label>
+            <input type="number" id="length" step="0.001" min="0.001" required 
+                   placeholder="Enter length of pipe/surface">
+        </div>
 
-  <script src="app.js"></script>
+        <!-- Temperature Parameters Section -->
+        <div class="section-title">Temperature Parameters</div>
+        
+        <div class="input-group">
+            <label for="inlet-temperature">Inlet Temperature (Ti) (K):</label>
+            <input type="number" id="inlet-temperature" step="0.1" min="0" required 
+                   placeholder="Enter inlet temperature">
+        </div>
+
+        <div class="input-group">
+            <label for="wall-temperature">Wall Temperature (Tw) (K):</label>
+            <input type="number" id="wall-temperature" step="0.1" min="0" required 
+                   placeholder="Enter wall temperature">
+        </div>
+
+        <!-- Convection Type Section -->
+        <div class="section-title">Convection Type</div>
+        
+        <div class="input-group">
+            <div class="radio-group">
+                <label for="external">
+                    <input type="radio" id="external" name="convection-type" value="external" checked> 
+                    <span class="radio-label"> External</span>
+                </label>
+                <label for="internal">
+                    <input type="radio" id="internal" name="convection-type" value="internal"> 
+                    <span class="radio-label"> Internal</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Calculate Button -->
+        <div class="button-group">
+            <button type="submit">Calculate</button>
+        </div>
+    </form>
+
+    <!-- Results Section -->
+    <div id="results" style="display: none; margin-top: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+        <h2>Results</h2>
+        <div id="results-content">
+            <p id="heat-transfer-coefficient"></p>
+            <!-- Add more result fields as needed -->
+        </div>
+    </div>
+
+    <script>
+        // Get all geometry elements
+        const geometrySelect = document.getElementById('geometry');
+        const circularDiv = document.getElementById('circular-dimension');
+        const squareDiv = document.getElementById('square-dimension');
+        const rectangularDiv = document.getElementById('rectangular-dimension');
+        
+        // Function to show only the selected geometry
+        function showSelectedGeometry() {
+            const selected = geometrySelect.value;
+            console.log("Selected geometry:", selected);
+            
+            // HIDE ALL FIRST
+            circularDiv.style.display = 'none';
+            squareDiv.style.display = 'none';
+            rectangularDiv.style.display = 'none';
+            
+            // Remove required from all geometry inputs
+            document.querySelectorAll('#geometry-dimensions input').forEach(input => {
+                input.removeAttribute('required');
+            });
+            
+            // SHOW SELECTED ONE
+            switch(selected) {
+                case 'circular':
+                    circularDiv.style.display = 'block';
+                    document.getElementById('diameter').setAttribute('required', 'true');
+                    break;
+                case 'square':
+                    squareDiv.style.display = 'block';
+                    document.getElementById('side-length').setAttribute('required', 'true');
+                    break;
+                case 'rectangular':
+                    rectangularDiv.style.display = 'block';
+                    document.getElementById('width').setAttribute('required', 'true');
+                    document.getElementById('height').setAttribute('required', 'true');
+                    break;
+            }
+        }
+        
+        // Add event listeners for immediate response
+        geometrySelect.addEventListener('change', showSelectedGeometry);
+        geometrySelect.addEventListener('click', showSelectedGeometry);
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Page loaded, initializing geometry display...");
+            showSelectedGeometry();
+        });
+        
+        // Form submission handler
+        document.getElementById('calculator-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get all form values
+            const formData = {
+                geometry: geometrySelect.value,
+                fluid: document.getElementById('fluid').value,
+                velocity: parseFloat(document.getElementById('velocity').value),
+                length: parseFloat(document.getElementById('length').value),
+                inletTemperature: parseFloat(document.getElementById('inlet-temperature').value),
+                wallTemperature: parseFloat(document.getElementById('wall-temperature').value),
+                convectionType: document.querySelector('input[name="convection-type"]:checked').value
+            };
+            
+            // Get geometry-specific dimensions
+            switch(formData.geometry) {
+                case 'circular':
+                    formData.diameter = parseFloat(document.getElementById('diameter').value);
+                    if (!formData.diameter || formData.diameter <= 0) {
+                        alert("Please enter a valid diameter");
+                        return;
+                    }
+                    break;
+                    
+                case 'square':
+                    formData.sideLength = parseFloat(document.getElementById('side-length').value);
+                    if (!formData.sideLength || formData.sideLength <= 0) {
+                        alert("Please enter a valid side length");
+                        return;
+                    }
+                    break;
+                    
+                case 'rectangular':
+                    formData.width = parseFloat(document.getElementById('width').value);
+                    formData.height = parseFloat(document.getElementById('height').value);
+                    if (!formData.width || formData.width <= 0 || !formData.height || formData.height <= 0) {
+                        alert("Please enter valid width and height");
+                        return;
+                    }
+                    break;
+            }
+            
+            // Validate all required fields
+            let isValid = true;
+            let errorMessage = "";
+            
+            if (!formData.velocity || formData.velocity <= 0) {
+                errorMessage += "• Please enter a valid velocity\n";
+                isValid = false;
+            }
+            if (!formData.length || formData.length <= 0) {
+                errorMessage += "• Please enter a valid length\n";
+                isValid = false;
+            }
+            if (!formData.inletTemperature || formData.inletTemperature <= 0) {
+                errorMessage += "• Please enter a valid inlet temperature\n";
+                isValid = false;
+            }
+            if (!formData.wallTemperature || formData.wallTemperature <= 0) {
+                errorMessage += "• Please enter a valid wall temperature\n";
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                alert("Please fix the following errors:\n\n" + errorMessage);
+                return;
+            }
+            
+            // Display collected data (for testing)
+            console.log("Form data collected:", formData);
+            
+            // Show results section
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('results-content');
+            
+            // Calculate hydraulic diameter based on geometry
+            let hydraulicDiameter = 0;
+            let geometryInfo = "";
+            
+            switch(formData.geometry) {
+                case 'circular':
+                    hydraulicDiameter = formData.diameter;
+                    geometryInfo = `Circular, Diameter: ${formData.diameter} m`;
+                    break;
+                case 'square':
+                    hydraulicDiameter = formData.sideLength;
+                    geometryInfo = `Square, Side Length: ${formData.sideLength} m`;
+                    break;
+                case 'rectangular':
+                    // For rectangular duct: Dh = 2wh/(w+h)
+                    hydraulicDiameter = 2 * (formData.width * formData.height) / (formData.width + formData.height);
+                    geometryInfo = `Rectangular, Width: ${formData.width} m, Height: ${formData.height} m`;
+                    break;
+            }
+            
+            // Mock calculation - REPLACE WITH YOUR ACTUAL FORMULAS
+            const reynoldsNumber = (formData.velocity * hydraulicDiameter * 1000) / 1e-6; // Simplified
+            const nusseltNumber = 0.023 * Math.pow(reynoldsNumber, 0.8) * Math.pow(0.7, 0.3); // Dittus-Boelter approx
+            const thermalConductivity = formData.fluid === 'air' ? 0.026 : 0.6; // W/m·K
+            const heatTransferCoefficient = (nusseltNumber * thermalConductivity) / hydraulicDiameter;
+            
+            // Display results
+            resultsContent.innerHTML = `
+                <h3>Calculation Results</h3>
+                <p><strong>Geometry:</strong> ${geometryInfo}</p>
+                <p><strong>Fluid Type:</strong> ${formData.fluid.charAt(0).toUpperCase() + formData.fluid.slice(1)}</p>
+                <p><strong>Convection Type:</strong> ${formData.convectionType.charAt(0).toUpperCase() + formData.convectionType.slice(1)}</p>
+                <p><strong>Hydraulic Diameter (Dh):</strong> ${hydraulicDiameter.toFixed(4)} m</p>
+                <p><strong>Reynolds Number (Re):</strong> ${reynoldsNumber.toFixed(0)}</p>
+                <p><strong>Nusselt Number (Nu):</strong> ${nusseltNumber.toFixed(2)}</p>
+                <p><strong>Heat Transfer Coefficient (h):</strong> ${heatTransferCoefficient.toFixed(2)} W/m²·K</p>
+                <p><strong>Velocity:</strong> ${formData.velocity} m/s</p>
+                <p><strong>Length:</strong> ${formData.length} m</p>
+                <p><strong>Inlet Temperature (Ti):</strong> ${formData.inletTemperature} K</p>
+                <p><strong>Wall Temperature (Tw):</strong> ${formData.wallTemperature} K</p>
+            `;
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            
+            alert(`Calculation complete!\n\nGeometry: ${formData.geometry}\nFluid: ${formData.fluid}\nConvection: ${formData.convectionType}\n\nSee detailed results below.`);
+        });
+    </script>
 </body>
 </html>
