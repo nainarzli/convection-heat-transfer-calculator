@@ -332,6 +332,15 @@
             border-radius: 0 5px 5px 0;
             font-family: 'Courier New', monospace;
         }
+
+        .iteration-info {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 0.85rem;
+            border-left: 4px solid #5bc0de;
+        }
     </style>
 </head>
 <body>
@@ -468,7 +477,7 @@
                 
                 <div class="input-row">
                     <label for="velocity">Velocity (V):</label>
-                    <input type="number" id="velocity" value="1.0" step="0.1">
+                    <input type="number" id="velocity" value="2.0" step="0.1">
                     <span class="unit">m/s</span>
                 </div>
                 <div class="error-text" id="velocity-error"></div>
@@ -498,8 +507,13 @@
                 • Laminar (Re ≤ 2300), Fully Developed: Nu = 3.66<br>
                 • Laminar (Re ≤ 2300), Developing: Special correlation<br>
                 • Turbulent (Re > 4000): Nu = 0.023 Re<sup>0.8</sup> Pr<sup>n</sup><br>
-                • Transition (2300 < Re < 4000): Interpolation<br>
+                • Transition (2300 < Re < 4000): Linear interpolation<br>
                 n = 0.4 for heating (Tw > Tb), 0.3 for cooling
+            </div>
+            
+            <div class="iteration-info" id="iteration-info" style="display: none;">
+                <strong>Property Iteration:</strong>
+                <div id="iteration-details"></div>
             </div>
             
             <div class="error-message" id="error-message">
@@ -545,6 +559,8 @@
                     chartContainer: document.getElementById('chart-container'),
                     errorList: document.getElementById('error-list'),
                     resultsContainer: document.getElementById('results-container'),
+                    iterationInfo: document.getElementById('iteration-info'),
+                    iterationDetails: document.getElementById('iteration-details'),
                     
                     // Geometry inputs
                     circularInputs: document.getElementById('circular-inputs'),
@@ -773,41 +789,68 @@
                 const fluid = this.elements.fluidSelect.value;
                 const props = this.getFluidProperties(fluid, 300);
                 
-                this.elements.fluidPropsDisplay.textContent = 
-                    `${fluid.charAt(0).toUpperCase() + fluid.slice(1)} properties at 300K: ` +
-                    `ρ = ${props.density.toFixed(4)} kg/m³, ` +
-                    `μ = ${props.viscosity.toExponential(3)} Pa·s, ` +
-                    `k = ${props.conductivity.toFixed(4)} W/m·K, ` +
-                    `Cp = ${props.specificHeat} J/kg·K, ` +
-                    `Pr = ${props.prandtl.toFixed(3)}`;
+                this.elements.fluidPropsDisplay.innerHTML = `
+                    <strong>${fluid.charAt(0).toUpperCase() + fluid.slice(1)} properties at 300K:</strong><br>
+                    • ρ = ${props.density.toFixed(3)} kg/m³<br>
+                    • μ = ${props.viscosity.toExponential(3)} Pa·s<br>
+                    • k = ${props.conductivity.toFixed(4)} W/m·K<br>
+                    • Cp = ${props.specificHeat.toFixed(0)} J/kg·K<br>
+                    • Pr = ${props.prandtl.toFixed(3)}
+                `;
             }
             
+            // CORRECTED: Accurate fluid property functions
             getFluidProperties(fluid, T) {
-                const properties = {
-                    air: {
-                        density: 1.1614 * Math.pow(T/300, -1),
-                        viscosity: 1.846e-5 * Math.pow(T/300, 0.7),
-                        conductivity: 0.0263 * Math.pow(T/300, 0.8),
-                        specificHeat: 1007,
-                        prandtl: 0.707 * Math.pow(T/300, -0.1)
-                    },
-                    water: {
-                        density: 997,
-                        viscosity: 8.9e-4,
-                        conductivity: 0.607,
-                        specificHeat: 4182,
-                        prandtl: 6.14
-                    },
-                    "engine-oil": {
-                        density: 888,
-                        viscosity: 0.8,
-                        conductivity: 0.145,
-                        specificHeat: 1880,
-                        prandtl: 10500
-                    }
-                };
+                T = Math.max(T, 250); // Ensure reasonable temperature
                 
-                return properties[fluid] || properties.air;
+                switch(fluid) {
+                    case 'air':
+                        // Ideal gas law: ρ = P/(RT), P=101325 Pa, R=287 J/kg·K
+                        const density = 101325 / (287 * T);
+                        
+                        // Sutherland's law approximation for air viscosity
+                        const mu0 = 1.716e-5; // Reference viscosity at 273K
+                        const T0 = 273;
+                        const S = 110.4; // Sutherland constant for air
+                        const viscosity = mu0 * Math.pow(T/T0, 1.5) * (T0 + S) / (T + S);
+                        
+                        // Conductivity: k = 0.0263 at 300K, linear approximation
+                        const conductivity = 0.0241 + 0.00007 * (T - 273);
+                        
+                        // Prandtl number for air
+                        const prandtl = 0.707 - 0.0001 * (T - 300);
+                        
+                        return {
+                            density: density,
+                            viscosity: viscosity,
+                            conductivity: conductivity,
+                            specificHeat: 1007,
+                            prandtl: Math.max(0.65, Math.min(0.75, prandtl))
+                        };
+                        
+                    case 'water':
+                        // Water properties at ~300K
+                        return {
+                            density: 997,
+                            viscosity: 8.9e-4,
+                            conductivity: 0.607,
+                            specificHeat: 4182,
+                            prandtl: 6.14
+                        };
+                        
+                    case 'engine-oil':
+                        // Engine oil at ~300K
+                        return {
+                            density: 888,
+                            viscosity: 0.8,
+                            conductivity: 0.145,
+                            specificHeat: 1880,
+                            prandtl: 10500
+                        };
+                        
+                    default:
+                        return this.getFluidProperties('air', T);
+                }
             }
             
             initializeChart() {
@@ -843,53 +886,57 @@
                 });
             }
             
-            // CORRECTED NUSSELT NUMBER CALCULATIONS BASED ON TABLE 4.3
-            calculateNusseltNumber(Re, Pr, L, Dh, Tw, Tb) {
-                let Nu, equation, regime, condition;
+            // CORRECTED Nusselt number calculation based on Table 4.3
+            calculateNusseltNumber(Re, Pr, L, Dh, Tw, Tb, regime) {
+                let Nu, equation, condition;
                 
-                if (Re <= 2300) {
-                    regime = "Laminar";
-                    const Lh = 0.05 * Re * Dh; // Hydrodynamic entry length
-                    
-                    if (L >= Lh) {
-                        // Fully developed laminar flow
+                // Determine if flow is heating or cooling
+                const isHeating = Tw > Tb;
+                const n = isHeating ? 0.4 : 0.3;
+                
+                // Calculate entry lengths
+                const L_hyd = 0.05 * Re * Dh; // Hydrodynamic entry length
+                const L_th = L_hyd * Pr;      // Thermal entry length
+                const isFullyDeveloped = L >= L_hyd && L >= L_th;
+                
+                if (regime === "Laminar") {
+                    if (isFullyDeveloped) {
                         condition = "Fully Developed";
-                        Nu = 3.66;
+                        Nu = 3.66; // Constant wall temperature
                         equation = "Nu = 3.66 (Table 4.3)";
                     } else {
-                        // Developing laminar flow (Graetz problem)
                         condition = "Developing";
-                        const Gz = (Dh / L) * Re * Pr; // Graetz number
+                        // Graetz number approach
+                        const Gz = (Dh / L) * Re * Pr;
                         if (Gz > 100) {
                             Nu = 1.86 * Math.pow(Gz, 1/3);
+                            equation = "Nu = 1.86 (Re Pr Dh/L)^{1/3}";
                         } else {
                             Nu = 3.66 + (0.0668 * Gz) / (1 + 0.04 * Math.pow(Gz, 2/3));
+                            equation = "Nu = 3.66 + 0.0668Gz/(1+0.04Gz^{2/3})";
                         }
-                        equation = "Nu = 1.86 (Re Pr Dh/L)^{1/3} (for Gz > 100)";
                     }
                 } 
-                else if (Re > 4000) {
-                    regime = "Turbulent";
-                    condition = "-";
-                    // Determine n based on heating/cooling
-                    const n = (Tw > Tb) ? 0.4 : 0.3; // 0.4 for heating, 0.3 for cooling
+                else if (regime === "Turbulent") {
+                    condition = "Fully Turbulent";
+                    // Dittus-Boelter correlation
                     Nu = 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, n);
                     equation = `Nu = 0.023 Re^0.8 Pr^${n} (Table 4.3)`;
-                } 
-                else {
-                    regime = "Transitional";
-                    condition = "-";
-                    // Interpolate between laminar and turbulent
-                    const laminarNu = 3.66; // Conservative estimate for laminar
-                    const turbulentNu = 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, 0.4); // Assuming heating
-                    const factor = (Re - 2300) / (4000 - 2300);
-                    Nu = laminarNu + (turbulentNu - laminarNu) * factor;
+                }
+                else if (regime === "Transitional") {
+                    condition = "Interpolated";
+                    // Interpolate between laminar (Re=2300) and turbulent (Re=4000)
+                    const laminarNu = 3.66; // Fully developed laminar
+                    const turbulentNu = 0.023 * Math.pow(Re, 0.8) * Math.pow(Pr, n);
+                    const fraction = (Re - 2300) / (4000 - 2300);
+                    Nu = laminarNu + (turbulentNu - laminarNu) * fraction;
                     equation = "Linear interpolation between laminar and turbulent";
                 }
                 
-                return { Nu, regime, condition, equation };
+                return { Nu, regime, condition, equation, L_hyd, L_th, isFullyDeveloped };
             }
             
+            // ITERATIVE SOLUTION FOR ACCURATE RESULTS
             calculate() {
                 if (!this.validateAllInputs()) return;
                 
@@ -925,64 +972,100 @@
                         break;
                 }
                 
-                // Update flowchart properties
+                // ITERATIVE SOLUTION STARTS HERE
+                this.elements.iterationInfo.style.display = 'block';
+                let iterationDetails = [];
+                
+                // Initial guess: use film temperature for properties
+                let Tb_guess = (Ti + Tw) / 2;
+                let To_guess = Ti + 10; // Initial outlet temperature guess
+                let props, Re, Pr, regime, nusseltResult, h, mdot, Cp, To, Q;
+                
+                const maxIterations = 50;
+                const tolerance = 0.01;
+                
+                for (let iter = 0; iter < maxIterations; iter++) {
+                    // Calculate properties at current bulk mean temperature
+                    const Tb_current = (Ti + To_guess) / 2;
+                    props = this.getFluidProperties(fluid, Tb_current);
+                    
+                    // Calculate Re and Pr
+                    Re = (props.density * V * Dh) / props.viscosity;
+                    Pr = props.prandtl;
+                    
+                    // Determine flow regime
+                    if (Re <= 2300) {
+                        regime = "Laminar";
+                    } else if (Re > 4000) {
+                        regime = "Turbulent";
+                    } else {
+                        regime = "Transitional";
+                    }
+                    
+                    // Calculate Nusselt number
+                    nusseltResult = this.calculateNusseltNumber(Re, Pr, L, Dh, Tw, Tb_current, regime);
+                    
+                    // Heat transfer coefficient
+                    h = (nusseltResult.Nu * props.conductivity) / Dh;
+                    
+                    // Mass flow rate
+                    mdot = props.density * V * Ac;
+                    Cp = props.specificHeat;
+                    
+                    // Calculate new outlet temperature
+                    const exponent = -h * As / (mdot * Cp);
+                    To = Tw - (Tw - Ti) * Math.exp(exponent);
+                    
+                    // Check convergence
+                    const deltaT = Math.abs(To - To_guess);
+                    To_guess = To;
+                    
+                    iterationDetails.push(`Iter ${iter+1}: Tb=${Tb_current.toFixed(1)}K, Re=${Re.toFixed(0)}, Nu=${nusseltResult.Nu.toFixed(2)}, To=${To.toFixed(1)}K`);
+                    
+                    if (deltaT < tolerance) {
+                        iterationDetails.push(`✓ Converged after ${iter+1} iterations`);
+                        break;
+                    }
+                    
+                    if (iter === maxIterations - 1) {
+                        iterationDetails.push(`⚠ Maximum iterations reached (${maxIterations})`);
+                    }
+                }
+                
+                // Final heat transfer rate
+                Q = mdot * Cp * (To - Ti);
+                
+                // Update iteration info
+                this.elements.iterationDetails.innerHTML = iterationDetails.join('<br>');
+                
+                // Update flowchart
                 this.elements.flowProperties.innerHTML = `
                     • Ac = ${Ac.toExponential(4)} m²<br>
                     • As = ${As.toFixed(3)} m²<br>
                     • Dh = ${Dh.toFixed(3)} m<br>
-                    • Fluid properties at Tb = ${((Ti + Tw)/2).toFixed(1)} K
+                    • Fluid properties at Tb = ${((Ti + To)/2).toFixed(1)} K
                 `;
                 
-                // Get fluid properties at bulk temperature
-                const Tb = (Ti + Tw) / 2;
-                const props = this.getFluidProperties(fluid, Tb);
-                
-                // Calculate Re and Pr
-                const Re = (props.density * V * Dh) / props.viscosity;
-                const Pr = props.prandtl;
-                
-                // Calculate Nusselt number using Table 4.3 correlations
-                const nusseltResult = this.calculateNusseltNumber(Re, Pr, L, Dh, Tw, Tb);
-                const Nu = nusseltResult.Nu;
-                const regime = nusseltResult.regime;
-                const condition = nusseltResult.condition;
-                const equation = nusseltResult.equation;
-                
-                // Update flowchart
                 this.elements.flowReynolds.innerHTML = `
                     • Re = ${Re.toFixed(0)}<br>
                     • Pr = ${Pr.toFixed(3)}<br>
                     <span class="flow-regime ${regime.toLowerCase()}">${regime} Flow</span>
                 `;
                 
-                // Entry lengths
-                const Lh = 0.05 * Re * Dh;
-                const Lt = Lh * Pr;
-                
                 this.elements.flowEntryLengths.innerHTML = `
-                    • Lh = ${Lh.toFixed(2)} m (Hydrodynamic)<br>
-                    • Lt = ${Lt.toFixed(2)} m (Thermal)<br>
-                    • L ≥ Lh? ${L >= Lh ? 'Yes' : 'No'}<br>
-                    • L ≥ Lt? ${L >= Lt ? 'Yes' : 'No'}
+                    • Lh = ${nusseltResult.L_hyd.toFixed(2)} m (Hydrodynamic)<br>
+                    • Lt = ${nusseltResult.L_th.toFixed(2)} m (Thermal)<br>
+                    • L ≥ Lh? ${L >= nusseltResult.L_hyd ? 'Yes' : 'No'}<br>
+                    • L ≥ Lt? ${L >= nusseltResult.L_th ? 'Yes' : 'No'}<br>
+                    • Condition: ${nusseltResult.isFullyDeveloped ? 'Fully Developed' : 'Developing'}
                 `;
                 
-                // Nusselt number details
                 this.elements.flowNusselt.innerHTML = `
                     • Flow Regime: ${regime}<br>
-                    • Condition: ${condition}<br>
-                    • ${equation}<br>
-                    • Calculated: Nu = ${Nu.toFixed(2)}
+                    • Condition: ${nusseltResult.condition}<br>
+                    • ${nusseltResult.equation}<br>
+                    • Calculated: Nu = ${nusseltResult.Nu.toFixed(2)}
                 `;
-                
-                // Heat transfer coefficient
-                const h = (Nu * props.conductivity) / Dh;
-                
-                // Mass flow rate and outlet temperature
-                const mdot = props.density * V * Ac;
-                const Cp = props.specificHeat;
-                const exponent = -h * As / (mdot * Cp);
-                const To = Tw - (Tw - Ti) * Math.exp(exponent);
-                const Q = mdot * Cp * (To - Ti);
                 
                 this.elements.flowResults.innerHTML = `
                     • h = ${h.toFixed(1)} W/m²·K<br>
@@ -992,7 +1075,10 @@
                 `;
                 
                 // Display results
-                this.displayResults(Re, Pr, regime, condition, equation, Lh, Lt, L, Nu, h, mdot, To, Q);
+                this.displayResults(Re, Pr, regime, nusseltResult.condition, 
+                                  nusseltResult.equation, nusseltResult.L_hyd, 
+                                  nusseltResult.L_th, L, nusseltResult.Nu, 
+                                  h, mdot, To, Q);
                 
                 // Update chart
                 this.updateTemperatureChart(L, Ti, To);
@@ -1062,7 +1148,8 @@
                     const x = (i / numPoints) * L;
                     positions.push(x.toFixed(2));
                     const progress = x / L;
-                    const temp = Ti + (To - Ti) * Math.pow(progress, 0.8);
+                    // Exponential temperature distribution for constant wall temp
+                    const temp = Ti + (To - Ti) * (1 - Math.exp(-progress * 3));
                     temperatures.push(temp);
                 }
                 
